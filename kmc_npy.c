@@ -101,30 +101,103 @@ void printBinaryWithPadding(uint64_t num) {
 }
 
 
+
+void print_char_binary(char c) {
+  printf("%d%d%d%d %d%d%d%d  ",
+		 (c&0b10000000)==0b10000000, (c&0b01000000)==0b01000000,
+		 (c&0b00100000)==0b00100000, (c&0b00010000)==0b00010000,
+		 (c&0b00001000)==0b00001000, (c&0b00000100)==0b00000100,
+		 (c&0b00000010)==0b00000010, (c&0b00000001)==0b00000001);
+}
+
+void print_kmer_binary(char* s, int k, int print_string)
+{
+  char* cptr;
+  if (print_string) {
+	for (cptr = s; cptr < s+k; cptr++) {
+	  printf("%c         |", *cptr);
+	}
+	printf("\n");
+  }
+  
+  for (cptr = s; cptr < s+k; cptr++) {
+	print_char_binary(*cptr);
+  }
+  printf("\n");
+}
+
+
+
 uint32_t kmer_to_uint32(char *s, int k)
 {
     int i;
 	uint64_t low_bits_mask = 0b0000001100000011000000110000001100000011000000110000001100000011; 
-    uint32_t kmer = 0;
+    uint32_t kmer;
     uint64_t* u = (uint64_t*)s;
 
 	printf("%.*s\n", k, s);
-
-	printBinaryWithPadding(u[0]);
-	printBinaryWithPadding(u[1]);
+	print_kmer_binary(s, k, 1);
 	
-    for (i = 0; i < (k>>3); i++) {
-        u[i] = (u[i] >> 1) & low_bits_mask;
-        printBinaryWithPadding(u[i]);
-        u[i] |= (u[i] >> 6);
-		printBinaryWithPadding(u[i]);
-        u[i] |= (u[i] >> 12);    
-		printBinaryWithPadding(u[i]);
-	}
+#ifdef REVERSE
+	//--------------------------------------------------------------------
+	//
+	//
+	// Input (8 bit character): A B C D  E F G H  I J K L  M N O P
+	//
+	//                          LSB                        MSB
+ 	// Memory layout:           ppoonnmm llkkjjii hhggffee ddccbbaa 
+	//                          ^
+	//                          most signficant bit
+	
+	u[0] = (u[0] >> 1) & low_bits_mask;
+	u[1] = (u[1] >> 1) & low_bits_mask;
+	print_kmer_binary(s, k, 0);
+
+	u[0] |= (u[0] >> 6);
+    u[1] |= (u[1] >> 6);
+    print_kmer_binary(s, k, 0);
+
+    u[0] |= (u[0] >> 12);
+    u[1] |= (u[1] >> 12);
+    print_kmer_binary(s, k, 0);
+
+    // Assuming k <= 16
+    char* kmerptr = &kmer;
+    kmerptr[0] = s[12];
+    kmerptr[1] = s[8];
+    kmerptr[2] = s[4];
+    kmerptr[3] = s[0];
+
+#else
+    // Input (8 bit character): A B C D  E F G H  I J K L  M N O P
+    //
+    //                          LSB                        MSB
+    // Memory layout:           aabbccdd eeffgghh iijjjjkk nnbboopp 
+    //                          ^
+    //                          most signficant bit
+    //
+	
+	u[0] = (u[0] >> 1) & low_bits_mask;
+    u[1] = (u[1] >> 1) & low_bits_mask;
+    print_kmer_binary(s, k, 0);
+
+	u[0] |= (u[0] << 10);
+    u[1] |= (u[1] << 10);
+	print_kmer_binary(s, k, 0);
+
+    u[0] |= (u[0] << 20);
+    u[1] |= (u[1] << 20);
+    print_kmer_binary(s, k, 0);
 	
     // Assuming k <= 16
-    kmer = ((uint32_t)s[13]) << 24 | ((uint32_t)s[9]) << 16 | ((uint32_t)s[5]) << 8 | (uint32_t)s[0];
-	printBinaryWithPadding(kmer);
+	char* kmerptr = &kmer;
+	kmerptr[0] = s[3];
+	kmerptr[1] = s[7];
+	kmerptr[2] = s[11];
+	kmerptr[3] = s[15];
+#endif
+	
+	print_kmer_binary((char*)&kmer, 4, 0);
     return kmer;
 }
 
@@ -164,6 +237,7 @@ int main(int argc, char *argv[])
   write_npy_header(nr_lines, outfile);
 
   while (total < nr_lines) {
+	// TODO: switching to a pointer instead of buffer[i] might accelerate things a little
 	for (i = 0; i < BUFFER_NR_RECORDS; i++) {
 	  if (fgets(line, sizeof(line), infile)) {
 		buffer[i].kmer = kmer_to_uint32(line, k);
