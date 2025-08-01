@@ -92,8 +92,8 @@ int count_nr_lines(FILE *file)
 }
 
 // From https://www.w3resource.com/c-programming-exercises/c-snippets/print-binary-format-in-c-using-printf-alternatives.php
-void printBinaryWithPadding(uint64_t num) {
-    for (int i = sizeof(uint64_t) * 8 - 1; i >= 0; i--) {
+void printBinaryWithPadding32(uint32_t num) {
+    for (int i = sizeof(uint32_t) * 8 - 1; i >= 0; i--) {
         printf("%d", (num >> i) & 1);
         if (i % 4 == 0) printf(" "); // Group by 4 bits for readability
     }
@@ -198,7 +198,8 @@ uint32_t kmer_to_uint32(char *s, int k)
 #endif
 	
 	print_kmer_binary((char*)&kmer, 4, 0);
-    return kmer;
+	printBinaryWithPadding32(kmer);
+	 return kmer;
 }
 
 int main(int argc, char *argv[])
