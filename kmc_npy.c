@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Total header size 128 bytes
 // - needs to be multiple of 64
@@ -30,10 +31,10 @@ typedef struct npy_header_t {
 #pragma pack(push,1)
 typedef struct record_t {
   uint32_t kmer;
-  uint16_t freq;
+  uint32_t freq;
 } record_t;
 #pragma pack(pop)
-#define BUFFER_NR_RECORDS 100000
+#define BUFFER_NR_RECORDS 1000000
 
 
 void write_npy_header(int nr_kmer, FILE* outfile) {
@@ -43,7 +44,8 @@ void write_npy_header(int nr_kmer, FILE* outfile) {
   // TODO: Make formats adaptable to k-mer length:
   // u2 suffices for 7-mers, u8 needed for 31-mers. Should be determined automatically or from command line
   // frequencies should be capped at maximal value and #bytes selected on command line
-  char header_str[] = "{'descr': [('kmer', '<u4'), ('freq', '<u2')], 'fortran_order': False, 'shape': (%d,), }";
+  // char header_str[] = "{'descr': [('kmer', '<u4'), ('freq', '<u2')], 'fortran_order': False, 'shape': (%d,), }";
+  char header_str[] = "{'descr':  '<u4', 'fortran_order': False, 'shape': (%d,2), }"; // changed to load npy as 2d matrix
   int written;
     
   npy_header.magic[0] = '\x93';
@@ -88,6 +90,7 @@ int count_nr_lines(FILE *file)
         count++;
     }
     fseek(file, pos, SEEK_SET);
+    printf("Rows found '%d'\n", count);
     return count;
 }
 
@@ -131,7 +134,7 @@ void print_kmer_binary(char* s, int k, int print_string)
 uint32_t kmer_to_uint32(char *s, int k)
 {
     int i;
-	uint64_t low_bits_mask = 0b0000001100000011000000110000001100000011000000110000001100000011; 
+	  uint64_t low_bits_mask = 0b0000001100000011000000110000001100000011000000110000001100000011; 
     uint32_t kmer;
     uint64_t* u = (uint64_t*)s;
 
@@ -208,7 +211,7 @@ int main(int argc, char *argv[])
   int k;
   char line[256];
   int nr_lines;
-  int total;
+  int total = 0;
   record_t* buffer;
   
   if (argc != 3) {
