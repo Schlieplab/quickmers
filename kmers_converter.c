@@ -31,11 +31,10 @@ typedef struct npy_header_t {
 #pragma pack(push,1)
 typedef struct record_t {
   uint32_t kmer;
-  uint32_t freq;
 } record_t;
 #pragma pack(pop)
-#define BUFFER_NR_RECORDS 5
-#define REVERSE FALSE
+#define BUFFER_NR_RECORDS 500000
+#define REVERSE TRUE
 
 
 void write_npy_header(int nr_kmer, FILE* outfile) {
@@ -46,7 +45,7 @@ void write_npy_header(int nr_kmer, FILE* outfile) {
   // u2 suffices for 7-mers, u8 needed for 31-mers. Should be determined automatically or from command line
   // frequencies should be capped at maximal value and #bytes selected on command line
   // char header_str[] = "{'descr': [('kmer', '<u4'), ('freq', '<u2')], 'fortran_order': False, 'shape': (%d,), }";
-  char header_str[] = "{'descr':  '<u4', 'fortran_order': False, 'shape': (%d,2), }"; // changed to load npy as 2d matrix TODO: make it an option
+  char header_str[] = "{'descr':  '<u4', 'fortran_order': False, 'shape': (%d,), }"; // changed to load npy as 2d matrix TODO: make it an option
   int written;
     
   npy_header.magic[0] = '\x93';
@@ -96,8 +95,8 @@ int count_nr_lines(FILE *file)
 }
 
 // From https://www.w3resource.com/c-programming-exercises/c-snippets/print-binary-format-in-c-using-printf-alternatives.php
-void printBinaryWithPadding32(uint32_t num) {
-    for (int i = sizeof(uint32_t) * 8 - 1; i >= 0; i--) {
+void printBinaryWithPadding(uint64_t num) {
+    for (int i = sizeof(uint64_t) * 8 - 1; i >= 0; i--) {
         printf("%d", (num >> i) & 1);
         if (i % 4 == 0) printf(" "); // Group by 4 bits for readability
     }
@@ -139,8 +138,8 @@ uint32_t kmer_to_uint32(char *s, int k)
     uint32_t kmer;
     uint64_t* u = (uint64_t*)s;
 
-	printf("%.*s\n", k, s);
-	print_kmer_binary(s, k, 1);
+	// printf("%.*s\n", k, s);
+	// print_kmer_binary(s, k, 1);
 	
 #ifdef REVERSE
 	//--------------------------------------------------------------------
@@ -201,9 +200,9 @@ uint32_t kmer_to_uint32(char *s, int k)
 	kmerptr[3] = s[15];
 #endif
 	
-	print_kmer_binary((char*)&kmer, 4, 0);
-	printBinaryWithPadding32(kmer);
-	 return kmer;
+// 	print_kmer_binary((char*)&kmer, 4, 0);
+//   printf("%d\n", kmer);
+    return kmer;
 }
 
 int main(int argc, char *argv[])
@@ -246,14 +245,12 @@ int main(int argc, char *argv[])
 	for (i = 0; i < BUFFER_NR_RECORDS; i++) {
 	  if (fgets(line, sizeof(line), infile)) {
 		buffer[i].kmer = kmer_to_uint32(line, k);
-		buffer[i].freq = (uint32_t)atoi(line + k + 1); 
 	  } else // File ended before buffer was full 
 		break;
 	}
 	printf("# Writing %d additional records (total %d)\n", i, total);
 	fwrite((void*)buffer, sizeof(char), i*sizeof(record_t),  outfile);
 	total += i;
-  break;
   }
 
   fclose(infile);

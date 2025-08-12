@@ -12,6 +12,7 @@ if __name__ == '__main__':
     )
     logging.info(f"{sys.argv[0]} starting up")
 
+    sites_file = "sites_5M.npy"
     kmc_file = "out.npy"
     # enc_file = "encoded_kmc.txt"
 

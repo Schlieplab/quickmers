@@ -207,3 +207,4 @@ vignettes/*.pdf
 rsconnect/
 
 *.npy
+*.txt
