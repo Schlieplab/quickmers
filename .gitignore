@@ -208,3 +208,5 @@ rsconnect/
 
 *.npy
 *.txt
+
+.vscode/
