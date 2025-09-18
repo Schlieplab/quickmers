@@ -22,13 +22,12 @@ def random_kmer(k, alphabet="ACGT"):
     """Generate a random kmer string of length k."""
     return "".join(random.choice(alphabet) for _ in range(k))
 
-def kmer_to_int(kmer):
-    """Convert ACGT kmer to 2-bit encoded integer."""
-    encoding = {'A': 0b00, 'C': 0b01, 'G': 0b10, 'T': 0b11}
-    x = 0
-    for c in kmer:
-        x = (x << 2) | encoding[c]
-    return x
+
+C2B = {'A': '00', 'C': '01', 'G': '10', 'T': '11'}
+B2C = {'00': 'A', '01': 'C', '10': 'G', '11': 'T'}
+
+def string2bitstring(s):
+    return int('0B'+''.join([C2B[c] for c in s]),2)
 
 def popcount32(x):
     """Vectorized population count for uint32 array"""
@@ -60,13 +59,13 @@ def benchmark(n, k):
     target_kmer_str = random_kmer(k)
 
     # Convert kmers to integers
-    target_kmer_int = kmer_to_int(target_kmer_str)
+    target_kmer_int = string2bitstring(target_kmer_str)
 
     # -----------------------------
     # Naive Python benchmark
     # -----------------------------
     start = time.time()
-    kmers_int32 = np.array([kmer_to_int(km) for km in kmers_str], dtype=np.uint32)
+    kmers_int32 = np.array([string2bitstring(km) for km in kmers_str], dtype=np.uint32)
     distances_py = [hamming_distance_naive(target_kmer_str, km) for km in kmers_str]
     t_py = time.time() - start
     logging.info(f"Naive Python time: {t_py:.6f} seconds")
@@ -75,7 +74,7 @@ def benchmark(n, k):
     # NumPy vectorized benchmark
     # -----------------------------
     start = time.time()
-    kmers_int32 = np.array([kmer_to_int(km) for km in kmers_str], dtype=np.uint32)
+    kmers_int32 = np.array([string2bitstring(km) for km in kmers_str], dtype=np.uint32)
     distances_np = hamming_distance_array_numpy(target_kmer_int, kmers_int32)
     t_np = time.time() - start
     logging.info(f"Vectorized NumPy time: {t_np:.6f} seconds")
@@ -87,14 +86,14 @@ def benchmark(n, k):
     # Encoded in python functions
     ## Array version 32bit
     start = time.time()
-    kmers_int32 = np.array([kmer_to_int(km) for km in kmers_str], dtype=np.uint32)
+    kmers_int32 = np.array([string2bitstring(km) for km in kmers_str], dtype=np.uint32)
     distances_c_array_32bit = quickmers.hamming_distance_encoded_array_32bit(target_kmer_int, kmers_int32)
     t_c_array = time.time() - start
     logging.info(f"C library array 32bit time: {t_c_array:.6f} seconds")
 
     ## Array version 64bit
     start = time.time()
-    kmers_int64 = np.array([kmer_to_int(km) for km in kmers_str], dtype=np.uint64)
+    kmers_int64 = np.array([string2bitstring(km) for km in kmers_str], dtype=np.uint64)
     distances_c_array_64bit = quickmers.hamming_distance_encoded_array_64bit(target_kmer_int, kmers_int64)
     t_c_array = time.time() - start
     logging.info(f"C library array 64bit time: {t_c_array:.6f} seconds")
@@ -102,7 +101,7 @@ def benchmark(n, k):
     ## One by one version 32bit
     distances_c_single_32bit = []
     start = time.time()
-    kmers_int32 = np.array([kmer_to_int(km) for km in kmers_str], dtype=np.uint32)
+    kmers_int32 = np.array([string2bitstring(km) for km in kmers_str], dtype=np.uint32)
     for kmer in kmers_int32:
         distances_c_single_32bit.append(quickmers.hamming_distance_encoded_32bit(target_kmer_int, kmer))
     t_c_single = time.time() - start
@@ -111,7 +110,7 @@ def benchmark(n, k):
     ## One by one version 64bit
     distances_c_single_64bit = []
     start = time.time()
-    kmers_int64 = np.array([kmer_to_int(km) for km in kmers_str], dtype=np.uint64)
+    kmers_int64 = np.array([string2bitstring(km) for km in kmers_str], dtype=np.uint64)
     for kmer in kmers_int64:
         distances_c_single_64bit.append(quickmers.hamming_distance_encoded_64bit(int(target_kmer_int), int(kmer)))
     t_c_single = time.time() - start

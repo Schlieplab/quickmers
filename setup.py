@@ -10,6 +10,7 @@ module = Extension(
     sources=[
         "quickmers/_cbindings.c",
         "src/hamming.c",
+        "src/levenshtein.c",
         # add more C files here as you grow
     ],
     include_dirs=[

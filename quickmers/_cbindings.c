@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "hamming.h"
+#include "levenshtein.h"
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
@@ -200,6 +201,63 @@ static PyObject* py_hamming_distance_64bit(PyObject* self, PyObject* args) {
     return PyLong_FromUnsignedLongLong(dist);
 }
 
+static PyObject* py_levenshtein(PyObject* self, PyObject* args) {
+    const char* s1;
+    const char* s2;
+
+    // Parse two strings from Python
+    if (!PyArg_ParseTuple(args, "ss", &s1, &s2))
+        return NULL;
+
+    int64_t len1 = (int64_t)strlen(s1);
+    int64_t len2 = (int64_t)strlen(s2);
+
+    // Call Myers bit-parallel Levenshtein function
+    int64_t dist = myers((uint8_t*)s1, len1, (uint8_t*)s2, len2);
+
+    // Return as Python int
+    return PyLong_FromLongLong(dist);
+}
+
+static PyObject* py_levenshtein_list(PyObject* self, PyObject* args) {
+    const char* kmer;
+    PyObject* kmer_list;
+
+    // Parse a string and a Python list
+    if (!PyArg_ParseTuple(args, "sO!", &kmer, &PyList_Type, &kmer_list))
+        return NULL;
+
+    Py_ssize_t list_size = PyList_Size(kmer_list);
+    if (list_size < 0) return NULL; // error checking
+
+    int64_t len_kmer = (int64_t)strlen(kmer);
+
+    // Create Python list to store results
+    PyObject* result_list = PyList_New(list_size);
+    if (!result_list) return NULL;
+
+    for (Py_ssize_t i = 0; i < list_size; i++) {
+        PyObject* item = PyList_GetItem(kmer_list, i);  // borrowed reference
+        if (!PyUnicode_Check(item)) {
+            Py_DECREF(result_list);
+            PyErr_SetString(PyExc_TypeError, "List items must be strings");
+            return NULL;
+        }
+
+        const char* current_kmer = PyUnicode_AsUTF8(item);
+        int64_t len_current = (int64_t)strlen(current_kmer);
+
+        // Call Myers function
+        int64_t dist = myers((uint8_t*)kmer, len_kmer, (uint8_t*)current_kmer, len_current);
+
+        // Convert distance to Python integer and set in list
+        PyObject* py_dist = PyLong_FromLongLong(dist);
+        PyList_SetItem(result_list, i, py_dist);  // steals reference
+    }
+
+    return result_list;
+}
+
 static PyMethodDef QuickmersMethods[] = {
     {"hamming_distance_array_32bit", py_hamming_distance_array_32bit, METH_VARARGS, "Compute Hamming distances between query string and list of kmer strings. maximum k = 16."},
     {"hamming_distance_array_64bit", py_hamming_distance_array_64bit, METH_VARARGS, "Compute Hamming distances between query string and list of kmer strings. maximum k = 32."},
@@ -209,6 +267,8 @@ static PyMethodDef QuickmersMethods[] = {
     {"hamming_distance_encoded_array_64bit", py_hamming_distance_encoded_array_64bit, METH_VARARGS, "Compute Hamming distances between encoded kmer and list of kmers. maximum k = 32."},
     {"hamming_distance_encoded_64bit", py_hamming_distance_encoded_64bit, METH_VARARGS, "Compute Hamming distance between two encoded kmers. maximum k = 32."},
     {"hamming_distance_64bit", py_hamming_distance_64bit, METH_VARARGS, "Compute Hamming distance between two kmer strings. maximum k = 32."},
+    {"levenshtein", py_levenshtein, METH_VARARGS, "Compute Levenshtein edit distance using Myers bit-parallel algorithm. maximum length = 63."},
+    {"levenshtein_list", py_levenshtein_list, METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings using Myers bit-parallel algorithm. maximum length = 63."},
     {NULL, NULL, 0, NULL}
 };
 

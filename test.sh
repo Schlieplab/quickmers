@@ -4,9 +4,10 @@
 #SBATCH --nodes=1                       
 #SBATCH --partition=comp                
 #SBATCH --account=root                  
-#SBATCH --job-name="test_quickmers"
+#SBATCH --job-name="test_edit"
 #SBATCH --output="slurm_out/%x/slurm-%j.out"
 ml load python/3.12.4
 source ~/venvs/test/bin/activate 
 pip install -e .
-python3 test.py
+# python3 test_hamming.py
+python3 test_edit.py
