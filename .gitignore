@@ -210,3 +210,5 @@ rsconnect/
 *.txt
 
 .vscode/
+
+python-test-scripts/*

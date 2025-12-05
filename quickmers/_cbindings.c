@@ -258,6 +258,313 @@ static PyObject* py_levenshtein_list(PyObject* self, PyObject* args) {
     return result_list;
 }
 
+static PyObject* py_levenshtein_list_avx2(PyObject* self, PyObject* args) {
+    const char* query;
+    PyObject* kmer_list;
+
+    if (!PyArg_ParseTuple(args, "sO!", &query, &PyList_Type, &kmer_list))
+        return NULL;
+
+    Py_ssize_t n = PyList_Size(kmer_list);
+    if (n <= 0) return NULL;
+
+    // Convert Python list to array of pointers
+    const uint8_t **kmers = (const uint8_t**)malloc(sizeof(uint8_t*)*n);
+    for (Py_ssize_t i = 0; i < n; i++) {
+        PyObject* item = PyList_GetItem(kmer_list, i);
+        if (!PyUnicode_Check(item)) {
+            free(kmers);
+            PyErr_SetString(PyExc_TypeError, "List items must be strings");
+            return NULL;
+        }
+        kmers[i] = (const uint8_t*)PyUnicode_AsUTF8(item);
+    }
+
+    int64_t kmer_len = strlen((const char*)kmers[0]);
+    int64_t *out = (int64_t*)malloc(sizeof(int64_t)*n);
+
+    myers_batch_avx2((const uint8_t*)query, strlen(query), kmers, n, kmer_len, out);
+
+    PyObject* result_list = PyList_New(n);
+    for (Py_ssize_t i = 0; i < n; i++)
+        PyList_SetItem(result_list, i, PyLong_FromLongLong(out[i]));
+
+    free(kmers);
+    free(out);
+    return result_list;
+}
+
+static PyObject* py_levenshtein_list_avx2_numpy(PyObject* self, PyObject* args) {
+    const char* query;
+    PyObject* kmer_list;
+
+    if (!PyArg_ParseTuple(args, "sO!", &query, &PyList_Type, &kmer_list))
+        return NULL;
+
+    Py_ssize_t n = PyList_Size(kmer_list);
+    if (n <= 0) {
+        // return an empty NumPy array
+        npy_intp dims[1] = {0};
+        return PyArray_SimpleNew(1, dims, NPY_INT64);
+    }
+
+    // Convert Python list to array of pointers
+    const uint8_t **kmers = (const uint8_t**)malloc(sizeof(uint8_t*) * n);
+    if (!kmers) return PyErr_NoMemory();
+
+    for (Py_ssize_t i = 0; i < n; i++) {
+        PyObject* item = PyList_GetItem(kmer_list, i);
+        if (!PyUnicode_Check(item)) {
+            free(kmers);
+            PyErr_SetString(PyExc_TypeError, "List items must be strings");
+            return NULL;
+        }
+        kmers[i] = (const uint8_t*)PyUnicode_AsUTF8(item);
+    }
+
+    int64_t kmer_len = strlen((const char*)kmers[0]);
+    int64_t* out = (int64_t*)malloc(sizeof(int64_t) * n);
+    if (!out) {
+        free(kmers);
+        return PyErr_NoMemory();
+    }
+
+    myers_batch_avx2((const uint8_t*)query, strlen(query), kmers, n, kmer_len, out);
+
+    // Create NumPy array
+    npy_intp dims[1] = { n };
+    PyObject* np_array = PyArray_SimpleNew(1, dims, NPY_INT64);
+    if (!np_array) {
+        free(kmers);
+        free(out);
+        return NULL;
+    }
+
+    // Copy results into NumPy array buffer
+    int64_t* arr_data = (int64_t*)PyArray_DATA((PyArrayObject*)np_array);
+    memcpy(arr_data, out, n * sizeof(int64_t));
+
+    free(kmers);
+    free(out);
+
+    return np_array;
+}
+
+static PyObject* py_levenshtein_list_with_min_dist(PyObject* self, PyObject* args) {
+    const char* kmer;
+    PyObject* kmer_list;
+    long min_distance;  // new arg
+
+    // Parse: string, list, integer
+    if (!PyArg_ParseTuple(args, "sO!l", &kmer, &PyList_Type, &kmer_list, &min_distance))
+        return NULL;
+
+    Py_ssize_t list_size = PyList_Size(kmer_list);
+    if (list_size <= 0) {
+        // return (True, empty list) instead of error
+        PyObject* result_list = PyList_New(0);
+        if (!result_list) return NULL; // malloc failure
+        PyObject* result_tuple = PyTuple_New(2);
+        if (!result_tuple) {
+            Py_DECREF(result_list);
+            return NULL;
+        }
+        PyTuple_SetItem(result_tuple, 0, PyBool_FromLong(1)); // True
+        PyTuple_SetItem(result_tuple, 1, result_list);
+        return result_tuple;
+    }
+
+    int64_t len_kmer = (int64_t)strlen(kmer);
+
+    // Create Python list to store results
+    PyObject* result_list = PyList_New(list_size);
+    if (!result_list) return NULL;
+
+    int early_exit = 0;
+
+    for (Py_ssize_t i = 0; i < list_size; i++) {
+        PyObject* item = PyList_GetItem(kmer_list, i);
+        if (!PyUnicode_Check(item)) {
+            Py_DECREF(result_list);
+            PyErr_SetString(PyExc_TypeError, "List items must be strings");
+            return NULL;
+        }
+
+        const char* current_kmer = PyUnicode_AsUTF8(item);
+        int64_t len_current = (int64_t)strlen(current_kmer);
+
+        int64_t dist = myers((uint8_t*)kmer, len_kmer, (uint8_t*)current_kmer, len_current);
+
+        // Store distance
+        PyObject* py_dist = PyLong_FromLongLong(dist);
+        PyList_SetItem(result_list, i, py_dist);
+
+        if (dist < min_distance) {
+            early_exit = 1;
+            // Truncate list (set remaining items to None)
+            for (Py_ssize_t j = i+1; j < list_size; j++) {
+                Py_INCREF(Py_None);
+                PyList_SetItem(result_list, j, Py_None);
+            }
+            break;
+        }
+    }
+
+    // Return tuple: (bool, list)
+    PyObject* result_tuple = PyTuple_New(2);
+    PyTuple_SetItem(result_tuple, 0, PyBool_FromLong(!early_exit));
+    PyTuple_SetItem(result_tuple, 1, result_list);
+
+    return result_tuple;
+}
+
+static PyObject* py_levenshtein_list_avx2_with_min_dist(PyObject* self, PyObject* args) {
+    const char* kmer;
+    PyObject* kmer_list;
+    long min_distance;
+
+    if (!PyArg_ParseTuple(args, "sO!l", &kmer, &PyList_Type, &kmer_list, &min_distance))
+        return NULL;
+
+    Py_ssize_t list_size = PyList_Size(kmer_list);
+    if (list_size <= 0) {
+        // return (True, empty list) instead of error
+        PyObject* result_list = PyList_New(0);
+        if (!result_list) return NULL; // malloc failure
+        PyObject* result_tuple = PyTuple_New(2);
+        if (!result_tuple) {
+            Py_DECREF(result_list);
+            return NULL;
+        }
+        PyTuple_SetItem(result_tuple, 0, PyBool_FromLong(1)); // True
+        PyTuple_SetItem(result_tuple, 1, result_list);
+        return result_tuple;
+    }
+
+    const uint8_t **kmers = (const uint8_t**)malloc(sizeof(uint8_t*)*list_size);
+    for (Py_ssize_t i = 0; i < list_size; i++) {
+        PyObject* item = PyList_GetItem(kmer_list, i);
+        if (!PyUnicode_Check(item)) {
+            free(kmers);
+            PyErr_SetString(PyExc_TypeError, "List items must be strings");
+            return NULL;
+        }
+        kmers[i] = (const uint8_t*)PyUnicode_AsUTF8(item);
+    }
+
+    int64_t kmer_len = strlen((const char*)kmers[0]);
+    int64_t *out = (int64_t*)malloc(sizeof(int64_t)*list_size);
+
+    myers_batch_avx2((const uint8_t*)kmer, strlen(kmer), kmers, list_size, kmer_len, out);
+
+    // Build result list
+    PyObject* result_list = PyList_New(list_size);
+    int early_exit = 0;
+    for (Py_ssize_t i = 0; i < list_size; i++) {
+        PyObject* py_dist = PyLong_FromLongLong(out[i]);
+        PyList_SetItem(result_list, i, py_dist);
+
+        if (out[i] < min_distance) {
+            early_exit = 1;
+            // Truncate rest
+            for (Py_ssize_t j = i+1; j < list_size; j++) {
+                Py_INCREF(Py_None);
+                PyList_SetItem(result_list, j, Py_None);
+            }
+            break;
+        }
+    }
+
+    free(kmers);
+    free(out);
+
+    PyObject* result_tuple = PyTuple_New(2);
+    PyTuple_SetItem(result_tuple, 0, PyBool_FromLong(!early_exit));
+    PyTuple_SetItem(result_tuple, 1, result_list);
+
+    return result_tuple;
+}
+
+static PyObject* py_levenshtein_list_avx2_with_min_dist_numpy(PyObject* self, PyObject* args) {
+    const char* kmer;
+    PyObject* kmer_list;
+    long min_distance;
+
+    if (!PyArg_ParseTuple(args, "sO!l", &kmer, &PyList_Type, &kmer_list, &min_distance))
+        return NULL;
+
+    Py_ssize_t list_size = PyList_Size(kmer_list);
+    if (list_size <= 0) {
+        // return (True, empty np.array([]))
+        npy_intp dims[1] = {0};
+        PyObject* empty_array = PyArray_SimpleNew(1, dims, NPY_INT64);
+        if (!empty_array) return NULL;
+
+        PyObject* result_tuple = PyTuple_New(2);
+        if (!result_tuple) {
+            Py_DECREF(empty_array);
+            return NULL;
+        }
+        PyTuple_SetItem(result_tuple, 0, PyBool_FromLong(1)); // True
+        PyTuple_SetItem(result_tuple, 1, empty_array);
+        return result_tuple;
+    }
+
+    const uint8_t **kmers = (const uint8_t**)malloc(sizeof(uint8_t*) * list_size);
+    if (!kmers) return PyErr_NoMemory();
+
+    for (Py_ssize_t i = 0; i < list_size; i++) {
+        PyObject* item = PyList_GetItem(kmer_list, i);
+        if (!PyUnicode_Check(item)) {
+            free(kmers);
+            PyErr_SetString(PyExc_TypeError, "List items must be strings");
+            return NULL;
+        }
+        kmers[i] = (const uint8_t*)PyUnicode_AsUTF8(item);
+    }
+
+    int64_t kmer_len = strlen((const char*)kmers[0]);
+    int64_t* out = (int64_t*)malloc(sizeof(int64_t) * list_size);
+    if (!out) {
+        free(kmers);
+        return PyErr_NoMemory();
+    }
+
+    myers_batch_avx2((const uint8_t*)kmer, strlen(kmer), kmers, list_size, kmer_len, out);
+
+    // Create NumPy array
+    npy_intp dims[1] = { list_size };
+    PyObject* np_array = PyArray_SimpleNew(1, dims, NPY_INT64);
+    if (!np_array) {
+        free(kmers);
+        free(out);
+        return NULL;
+    }
+    int64_t* arr_data = (int64_t*)PyArray_DATA((PyArrayObject*)np_array);
+
+    int early_exit = 0;
+    for (Py_ssize_t i = 0; i < list_size; i++) {
+        arr_data[i] = out[i];
+        if (out[i] < min_distance) {
+            early_exit = 1;
+            // Fill remaining with -1 sentinel
+            for (Py_ssize_t j = i+1; j < list_size; j++) {
+                arr_data[j] = -1;
+            }
+            break;
+        }
+    }
+
+    free(kmers);
+    free(out);
+
+    PyObject* result_tuple = PyTuple_New(2);
+    PyTuple_SetItem(result_tuple, 0, PyBool_FromLong(!early_exit));
+    PyTuple_SetItem(result_tuple, 1, np_array);
+
+    return result_tuple;
+}
+
 static PyMethodDef QuickmersMethods[] = {
     {"hamming_distance_array_32bit", py_hamming_distance_array_32bit, METH_VARARGS, "Compute Hamming distances between query string and list of kmer strings. maximum k = 16."},
     {"hamming_distance_array_64bit", py_hamming_distance_array_64bit, METH_VARARGS, "Compute Hamming distances between query string and list of kmer strings. maximum k = 32."},
@@ -269,6 +576,11 @@ static PyMethodDef QuickmersMethods[] = {
     {"hamming_distance_64bit", py_hamming_distance_64bit, METH_VARARGS, "Compute Hamming distance between two kmer strings. maximum k = 32."},
     {"levenshtein", py_levenshtein, METH_VARARGS, "Compute Levenshtein edit distance using Myers bit-parallel algorithm. maximum length = 63."},
     {"levenshtein_list", py_levenshtein_list, METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings using Myers bit-parallel algorithm. maximum length = 63."},
+    {"levenshtein_list_avx2", py_levenshtein_list_avx2, METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings using Myers bit-parallel algorithm. maximum length = 63. Uses avx2 operations and is faster than levenshtein_list if cpu supports the avx2 commands."},
+    {"levenshtein_list_avx2_numpy", py_levenshtein_list_avx2_numpy, METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings using Myers bit-parallel algorithm. maximum length = 63. Uses avx2 operations and is faster than levenshtein_list if cpu supports the avx2 commands."},
+    {"levenshtein_list_with_min_dist", py_levenshtein_list_with_min_dist, METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings unless one of the pairs violate min distance constraint. maximum length = 63."},
+    {"levenshtein_list_avx2_with_min_dist", py_levenshtein_list_avx2_with_min_dist, METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings unless one of the pairs violate min distance constraint. maximum length = 63. Uses avx2 operations and is faster than levenshtein_list if cpu supports the avx2 commands."},
+    {"levenshtein_list_avx2_with_min_dist_numpy", py_levenshtein_list_avx2_with_min_dist_numpy,  METH_VARARGS, "Compute Levenshtein edit distances between query string and list of kmer strings unless one of the pairs violate min distance constraint. maximum length = 63. Uses avx2 operations and is faster than levenshtein_list if cpu supports the avx2 commands."},
     {NULL, NULL, 0, NULL}
 };
 
@@ -283,7 +595,7 @@ static struct PyModuleDef quickmersmodule = {
 PyMODINIT_FUNC PyInit__cbindings(void) {
     PyObject *module = PyModule_Create(&quickmersmodule);
     if (!module) return NULL;
-    import_array();  // initialize NumPy C API
+    import_array();
     return module;
 }
 

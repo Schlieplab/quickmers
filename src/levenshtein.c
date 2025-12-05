@@ -4,6 +4,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <immintrin.h>  // AVX2
 
 // print 64-bit integer as binary
 void print_uint64_binary(uint64_t x) {
@@ -67,61 +70,75 @@ int64_t myers(uint8_t *t, int64_t n, uint8_t *p, int64_t m) {
     return score;
 }
 
-// 
+// AVX2 batch Myers: 4 kmers at once
+void myers_batch_avx2(
+    const uint8_t *query, int64_t qlen,
+    const uint8_t **kmers, int64_t n_kmers, int64_t kmer_len,
+    int64_t *out
+) {
+    for (int64_t batch = 0; batch < n_kmers; batch += 4) {
+        __m256i pv = _mm256_set1_epi64x(-1LL);
+        __m256i mv = _mm256_setzero_si256();
+        __m256i eq, xv, xh, ph, mh;
+        int64_t score[4] = {kmer_len, kmer_len, kmer_len, kmer_len};
+        uint64_t hb = 1ULL << (kmer_len - 1);
 
-// int64_t myers(uint8_t *t, int64_t n, uint8_t *p, int64_t m) {
-//     uint64_t pv, mv;        // positive and negative vertical delta values
-//     uint64_t ph, mh;        // positive and negative horizontal delta values
-//     uint64_t xv, xh;        // current vertical and horizontal states
-//     uint64_t eq, hb, peq[256];
-//     int64_t score = m;
-//     int64_t j;
+        // Prepare peq tables for 4 kmers
+        uint64_t peq[4][256] = {{0}};
+        for (int lane = 0; lane < 4; lane++) {
+            if (batch + lane >= n_kmers) break;
+            const uint8_t *p = kmers[batch + lane];
+            for (int i = 0; i < kmer_len; i++)
+                peq[lane][p[i]] |= 1ULL << i;
+        }
 
-//     // populate lookup table
-//     memset(peq, 0, sizeof(peq));
-//     for (int64_t i = 0; i < m; i++) {
-//         // peq[p[i]] |= (1ULL << i);
-//         peq[p[i]] |= (uint64_t) 1 << i;
-//     }
+        // Loop over query positions
+        for (int64_t j = 0; j < qlen; j++) {
+            uint64_t eq_arr[4] = {0};
+            for (int lane = 0; lane < 4; lane++) {
+                if (batch + lane >= n_kmers) break;
+                eq_arr[lane] = peq[lane][query[j]];
+            }
 
-//     // set initial values
-//     pv = (1ULL << m) - 1;   // all ones up to pattern length
-//     mv = 0ULL;
-//     hb = 1ULL << (m - 1);   // high bit mask
+            eq = _mm256_set_epi64x(
+                eq_arr[3], eq_arr[2], eq_arr[1], eq_arr[0]
+            );
 
-//     // printf("pv after initialization: ");
-//     // print_uint64_binary(pv);
-//     // printf("mv after initialization: ");
-//     // print_uint64_binary(mv);
-//     // printf("hb after initialization: ");
-//     // print_uint64_binary(hb);
-//     // fflush(stdout); // ensures output appears immediately
+            xv = _mm256_or_si256(eq, mv);
+            xh = _mm256_or_si256(
+                    _mm256_xor_si256(
+                        _mm256_add_epi64(_mm256_and_si256(eq, pv), pv), pv
+                    ),
+                    eq
+                );
 
-//     for (j = 0; j < n; j++) {
-//         eq = peq[t[j]];
+            ph = _mm256_or_si256(mv, _mm256_andnot_si256(_mm256_or_si256(xh, pv), _mm256_set1_epi64x(-1LL)));
+            mh = _mm256_and_si256(pv, xh);
 
-//         // compute current states
-//         xv = eq | mv;
-//         xh = (((eq & pv) + pv) ^ pv) | eq;
+            // Update scores per lane
+            uint64_t ph_arr[4], mh_arr[4];
+            _mm256_storeu_si256((__m256i*)ph_arr, ph);
+            _mm256_storeu_si256((__m256i*)mh_arr, mh);
+            for (int lane = 0; lane < 4; lane++) {
+                if (batch + lane >= n_kmers) break;
+                if (ph_arr[lane] & hb) score[lane]++;
+                if (mh_arr[lane] & hb) score[lane]--;
+            }
 
-//         // horizontal delta updates
-//         ph = mv | ~(xh | pv);
-//         mh = pv & xh;
+            // Update pv, mv
+            ph = _mm256_slli_epi64(ph, 1);
+            ph = _mm256_or_si256(ph, _mm256_set1_epi64x(1));
+            pv = _mm256_or_si256(
+                    _mm256_slli_epi64(mh,1),
+                    _mm256_andnot_si256(_mm256_or_si256(xv, ph), _mm256_set1_epi64x(-1LL))
+                 );
+            mv = _mm256_and_si256(ph, xv);
+        }
 
-//         // update score
-//         if (ph & hb) {
-//             score++;
-//         } else if (mh & hb) {
-//             score--;
-//         }
-
-//         // vertical delta updates
-//         ph = (ph << 1) | 1ULL;
-//         mh <<= 1;
-
-//         pv = mh | ~(xv | ph);
-//         mv = ph & xv;
-//     }
-
-//     return score;
-// }
+        // Store results
+        for (int lane = 0; lane < 4; lane++) {
+            if (batch + lane >= n_kmers) break;
+            out[batch + lane] = score[lane];
+        }
+    }
+}
