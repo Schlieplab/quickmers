@@ -212,3 +212,4 @@ rsconnect/
 .vscode/
 
 python-test-scripts/*
+venv312/*

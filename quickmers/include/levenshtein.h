@@ -9,4 +9,9 @@ void myers_batch_avx2(
     const uint8_t **kmers, int64_t n_kmers, int64_t kmer_len,
     int64_t *out
 );
+void myers_dispatch(
+    const uint8_t *query, int64_t qlen,
+    const uint8_t **kmers, int64_t n_kmers, int64_t kmer_len,
+    int64_t *out
+);
 #endif
