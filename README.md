@@ -3,7 +3,6 @@
 [![PyPI Version](https://img.shields.io/pypi/v/quickmers)](https://pypi.org/project/quickmers)
 [![License](https://img.shields.io/badge/License-LGPL--3.0--or--later-blue)](LICENSE)
 
----
 
 ## Overview
 
@@ -14,7 +13,6 @@
 
 The library leverages **bitwise operations for Hamming distance** and the **Myers bit-parallel algorithm** for edit distance. On systems with **AVX2 instructions**, computations are further accelerated.
 
----
 
 ## Installation
 
@@ -30,7 +28,6 @@ Or install manually:
 python setup.py install
 ```
 
----
 
 ## Usage
 
@@ -39,9 +36,9 @@ import numpy as np
 from quickmers import (
     hamming_distance_array,
     hamming_distance,
-    levenshtein,
-    levenshtein_array,
-    levenshtein_array_with_min_dist
+    levenshtein_distance,
+    levenshtein_distance_array,
+    levenshtein_distance_array_with_min_dist
 )
 ```
 ### 1. Hamming Distance
@@ -58,7 +55,6 @@ d = hamming_distance("ACGT", "TCGA")
 print(d)  # Output: 2
 ```
 
----
 
 ### 2. Hamming Distance (array)
 
@@ -81,29 +77,26 @@ print(distances1) # Output: array([0, 2, 4])
 print(distances2) # Output: array([0, 2, 4])
 ```
 
----
 
 ### 3. Levenshtein Distance
 
 #### Signature
 ```python
-levenshtein(sequence1: str, sequence2: str) -> int
+levenshtein_distance(sequence1: str, sequence2: str) -> int
 ```
 
 Compute the edit distance between two sequences.
 
 ```python
-d = levenshtein("ACGT", "CGTA")
+d = levenshtein_distance("ACGT", "CGTA")
 print(d)  # Output: 2
 ```
-
----
 
 ### 4. Levenshtein Distance (array)
 
 #### Signature
 ```python
-levenshtein_array(query: str, targets: Union[List[str], np.ndarray]) -> np.ndarray
+levenshtein_distance_array(query: str, targets: Union[List[str], np.ndarray]) -> np.ndarray
 ```
 
 Compute edit distances between a query sequence and a list of sequences.
@@ -111,17 +104,15 @@ Compute edit distances between a query sequence and a list of sequences.
 ```python
 query = "ACGT"
 targets = ["ACGT", "TCGA", "CGTA"]
-distances = levenshtein_array(query, targets)
+distances = levenshtein_distance_array(query, targets)
 print(distances)  # Output: array([0, 2, 2])
 ```
-
----
 
 ### 5. Levenshtein Distance with Minimum Distance
 
 #### Signature
 ```python
-levenshtein_array_with_min_dist(query: str, targets: Union[List[str], np.ndarray], min_distance: int) -> Tuple[bool, List[Optional[int]]]
+levenshtein_distance_array_with_min_dist(query: str, targets: Union[List[str], np.ndarray], min_distance: int) -> Tuple[bool, List[Optional[int]]]
 ```
 Compute the Levenshtein (edit) distance between a query k-mer and a list of target k-mers, with **early exit** if a minimum distance is violated.  
 
@@ -130,11 +121,10 @@ This function is useful when you want to skip unnecessary calculations once a ta
 ```python
 query = "ACGT"
 targets = ["AGGG", "TCGA", "CGTA"]
-early_exit, distances = levenshtein_array_with_min_dist(query, targets, 1)
+early_exit, distances = levenshtein_distance_array_with_min_dist(query, targets, 1)
 print(early_exit) # Output: False
 print(distances)  # Output: array([2, 2, 2])
 ```
----
 
 ## Implementation Details
 - **Hamming distance:** computed using bitwise operations on 64-bit integers for speed. The sequence length has to be 32 or lower.
@@ -143,29 +133,26 @@ print(distances)  # Output: array([2, 2, 2])
 - **AVX2 acceleration:** if your CPU supports AVX2, internal loops are vectorized for faster computation.
 - **Memory management:** all functions use efficient pre-allocated arrays to minimize Python overhead.
 
----
-
 ## Performance
 
-Benchmarking was performed on typical DNA sequences using our C backend:
+Benchmarking was performed on randomly generated k-mers of varying lengths.
+Values represent the number of string pairs distances calculated per second.
 
-| Function | Sequence count | Length | Time per 1e6 pairs (s) |
-|----------|----------------|--------|-----------------------|
-| `hamming_distance` | 1 | 100 | 0.00001 |
-| `hamming_distance_array` | 1000 | 100 | 0.002 |
-| `levenshtein` | 1 | 100 | 0.0001 |
-| `levenshtein_array` | 1000 | 100 | 0.03 |
-| `levenshtein_array_with_min_dist` | 1000 | 100 | 0.04 |
+### Benchmark Results
 
-> Results may vary depending on CPU and whether AVX2 instructions are available.
+| Function | k=5 | k=10 | k=15 | k=20 | k=25 | k=30 |
+|----------|----------|----------|----------|----------|----------|----------|
+| `hamming_distance` | 9,505,940 | 9,192,009 | 8,866,906 | 8,555,942 | 8,249,809 | 7,946,207 |
+| `hamming_distance_array` | 49,038,568 | 47,807,278 | 44,236,469 | 38,861,603 | 35,788,375 | 33,238,156 |
+| `levenshtein_distance` | 7,499,375 | 6,407,775 | 5,797,060 | 5,131,730 | 4,688,698 | 4,267,584 |
+| `levenshtein_distance_array` | 26,354,634 | 20,227,311 | 16,396,735 | 13,399,246 | 11,772,501 | 10,360,021 |
 
----
+> Results may vary depending on CPU architecture, compiler optimizations, and whether AVX2 instructions are available.
+
 
 ## References
 
 [1] Gene Myers. 1999. *A fast bit-vector algorithm for approximate string matching based on dynamic programming*. J. ACM 46, 3 (May 1999), 395-415. https://doi.org/10.1145/316542.316550
-
----
 
 ## License
 

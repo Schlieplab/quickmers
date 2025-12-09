@@ -211,5 +211,5 @@ rsconnect/
 
 .vscode/
 
-python-test-scripts/*
+scripts/*
 venv312/*

@@ -16,7 +16,14 @@ static int convert_to_kmer_array(PyObject* obj, const uint8_t*** kmers_out, int6
 
     if (PyList_Check(obj)) {
         n = PyList_Size(obj);
-        if (n == 0) return -1;
+
+        if (n == 0) {
+            *kmers_out = NULL;
+            *n_out = 0;
+            *kmer_len_out = 0;
+            return 0;
+        }
+
         kmers = malloc(sizeof(uint8_t*) * n);
         if (!kmers) return -1;
 
@@ -26,20 +33,32 @@ static int convert_to_kmer_array(PyObject* obj, const uint8_t*** kmers_out, int6
             kmers[i] = (const uint8_t*)PyUnicode_AsUTF8(item);
             if (i == 0) kmer_len = strlen((const char*)kmers[0]);
         }
-    } else if (PyArray_Check(obj)) {
+
+    } 
+    else if (PyArray_Check(obj)) {
         PyArrayObject* arr = (PyArrayObject*)obj;
         if (PyArray_TYPE(arr) != NPY_OBJECT || PyArray_NDIM(arr) != 1) return -1;
+
         n = PyArray_DIM(arr, 0);
-        if (n == 0) return -1;
+
+        if (n == 0) {
+            *kmers_out = NULL;
+            *n_out = 0;
+            *kmer_len_out = 0;
+            return 0;
+        }
+
         kmers = malloc(sizeof(uint8_t*) * n);
         if (!kmers) return -1;
+
         for (Py_ssize_t i = 0; i < n; i++) {
             PyObject* item = *(PyObject**)PyArray_GETPTR1(arr, i);
             if (!PyUnicode_Check(item)) { free(kmers); return -1; }
             kmers[i] = (const uint8_t*)PyUnicode_AsUTF8(item);
             if (i == 0) kmer_len = strlen((const char*)kmers[0]);
         }
-    } else {
+    } 
+    else {
         return -1;
     }
 
@@ -63,18 +82,19 @@ static PyObject* py_hamming_distance_array(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    int64_t* distances = malloc(n * sizeof(int64_t));
+    int* distances = malloc(n * sizeof(int));
     if (!distances) { free(kmers); return PyErr_NoMemory(); }
 
     hamming_distance_array_64bit(query, (const char**)kmers, n, distances);
 
     npy_intp dims[1] = { n };
-    PyObject* np_array = PyArray_SimpleNew(1, dims, NPY_INT64);
-    memcpy(PyArray_DATA((PyArrayObject*)np_array), distances, n * sizeof(int64_t));
+    PyObject* np_array = PyArray_SimpleNewFromData(1, dims, NPY_INT32, distances);
+    PyObject* result_copy = PyArray_NewCopy((PyArrayObject*)np_array, NPY_CORDER);
 
-    free(kmers);
     free(distances);
-    return np_array;
+    free(kmers);
+    Py_DECREF(np_array);
+    return result_copy;
 }
 
 static PyObject* py_hamming_distance(PyObject* self, PyObject* args) {
@@ -189,9 +209,9 @@ static PyObject* py_levenshtein_array_with_min_dist(PyObject* self, PyObject* ar
 static PyMethodDef QuickmersMethods[] = {
     {"hamming_distance_array", py_hamming_distance_array, METH_VARARGS, "64-bit Hamming distance for list."},
     {"hamming_distance", py_hamming_distance, METH_VARARGS, "64-bit Hamming distance scalar."},
-    {"levenshtein", py_levenshtein, METH_VARARGS, "Levenshtein scalar."},
-    {"levenshtein_array", py_levenshtein_array, METH_VARARGS, "Levenshtein list (list or numpy array)."},
-    {"levenshtein_array_with_min_dist", py_levenshtein_array_with_min_dist, METH_VARARGS, "Levenshtein list with min distance (list or numpy array)."},
+    {"levenshtein_distance", py_levenshtein, METH_VARARGS, "Levenshtein scalar."},
+    {"levenshtein_distance_array", py_levenshtein_array, METH_VARARGS, "Levenshtein list (list or numpy array)."},
+    {"levenshtein_distance_array_with_min_dist", py_levenshtein_array_with_min_dist, METH_VARARGS, "Levenshtein list with min distance (list or numpy array)."},
     {NULL, NULL, 0, NULL}
 };
 

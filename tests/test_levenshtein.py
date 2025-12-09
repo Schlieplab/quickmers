@@ -1,4 +1,4 @@
 import quickmers
 
 def test_levenshtein_basic():
-    assert quickmers.levenshtein("GATTACA", "GACTATA") == 2
+    assert quickmers.levenshtein_distance("GATTACA", "GACTATA") == 2
