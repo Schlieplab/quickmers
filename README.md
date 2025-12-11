@@ -16,18 +16,13 @@ The library leverages **bitwise operations for Hamming distance** and the **Myer
 
 ## Installation
 
-Install from PyPI:
+**Planned:** Quickmers will be available on [PyPI](https://pypi.org/) in the future.  
 
-```bash
-pip install quickmers
-```
-
-Or install manually:
+For now,  install manually:
 
 ```bash
 python setup.py install
 ```
-
 
 ## Usage
 
