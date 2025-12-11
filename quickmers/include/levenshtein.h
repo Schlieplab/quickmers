@@ -1,3 +1,11 @@
+/*
+Filename: quickmers/include/levenshtein.h
+Author: Kian Jalilian
+Copyright: 2025, Kian Jalilian
+Version: 0.1.0
+Description: Header file for levenshtein distance implementation in C
+License: LGPL-3.0-or-later
+*/
 #ifndef LEVENSHTEIN_H
 #define LEVENSHTEIN_H
 

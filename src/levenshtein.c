@@ -1,3 +1,11 @@
+/*
+Filename: src/levenshtein.c
+Author: Kian Jalilian
+Copyright: 2025, Kian Jalilian
+Version: 0.1.0
+Description: Function implementations for levenshtein distance calculations
+License: LGPL-3.0-or-later
+*/
 #include "levenshtein.h"
 #include <Python.h>
 #include <stdint.h>

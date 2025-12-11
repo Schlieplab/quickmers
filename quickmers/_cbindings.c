@@ -1,3 +1,11 @@
+/*
+Filename: quickmers/_cbindings.c
+Author: Kian Jalilian
+Copyright: 2025, Kian Jalilian
+Version: 0.1.0
+Description: Python C extension providing Hamming and Levenshtein distance functions.
+License: LGPL-3.0-or-later
+*/
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <numpy/arrayobject.h>
