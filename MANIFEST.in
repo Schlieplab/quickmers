@@ -1,0 +1,3 @@
+include README.md
+recursive-include quickmers/include *.h
+recursive-include src *.c

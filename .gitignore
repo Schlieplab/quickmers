@@ -210,3 +210,6 @@ rsconnect/
 *.txt
 
 .vscode/
+
+scripts/*
+venv312/*

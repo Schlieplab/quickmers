@@ -1,3 +1,11 @@
+/*
+Filename: src/hamming.c
+Author: Kian Jalilian
+Copyright: 2025, Alexander Schliep
+Version: 0.1.0
+Description: Function implementations for hamming distance calculations
+License: LGPL-3.0-or-later
+*/
 #include "hamming.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,23 +35,6 @@ uint64_t kmer_to_uint64(const char *s, int k) {
         result = (result << 2) | bits;
     }
     return result;
-}
-
-void hamming_distance_encoded_array_32bit(uint32_t kmer, const uint32_t *kmers_list, size_t n, int *distances) {
-    for (size_t i = 0; i < n; i++) {
-        uint32_t xor = kmer ^ kmers_list[i];
-        uint32_t mask = (xor | (xor >> 1)) & 0x55555555u;
-#if defined(__GNUC__) || defined(__clang__)
-        distances[i] = __builtin_popcount(mask);
-#else
-        int count = 0;
-        while (mask) {
-            mask &= (mask - 1);
-            count++;
-        }
-        distances[i] = count;
-#endif
-    }
 }
 
 void hamming_distance_array_32bit(
@@ -135,21 +126,6 @@ void hamming_distance_array_64bit(
     free(kmers_encoded);
 }
 
-uint32_t hamming_distance_encoded_32bit(uint32_t kmer1, uint32_t kmer2) {
-    uint32_t xor = kmer1 ^ kmer2;
-    uint32_t mask = (xor | (xor >> 1)) & 0x55555555u;
-    #if defined(__GNUC__) || defined(__clang__)
-    return __builtin_popcount(mask);
-#else
-    int count = 0;
-    while (mask) {
-        mask &= (mask - 1);
-        count++;
-    }
-    return count;
-#endif
-}
-
 uint32_t hamming_distance_32bit(const char* kmer1_str, const char* kmer2_str) {
     int k = strlen(kmer1_str);  // assume kmer1_str and kmer2_str are same length
     uint32_t kmer1 = kmer_to_uint32(kmer1_str, k);
@@ -160,38 +136,6 @@ uint32_t hamming_distance_32bit(const char* kmer1_str, const char* kmer2_str) {
 
 #if defined(__GNUC__) || defined(__clang__)
     return __builtin_popcount(mask);
-#else
-    int count = 0;
-    while (mask) {
-        mask &= (mask - 1);
-        count++;
-    }
-    return count;
-#endif
-}
-
-void hamming_distance_encoded_array_64bit(uint64_t kmer, const uint64_t *kmers_list, size_t n, int *distances) {
-    for (size_t i = 0; i < n; i++) {
-        uint64_t xor = kmer ^ kmers_list[i];
-        uint64_t mask = (xor | (xor >> 1)) & 0x5555555555555555u;
-#if defined(__GNUC__) || defined(__clang__)
-        distances[i] = __builtin_popcountll(mask);
-#else
-        int count = 0;
-        while (mask) {
-            mask &= (mask - 1);
-            count++;
-        }
-        distances[i] = count;
-#endif
-    }
-}
-
-uint64_t hamming_distance_encoded_64bit(uint64_t kmer1, uint64_t kmer2) {
-    uint64_t xor = kmer1 ^ kmer2;
-    uint64_t mask = (xor | (xor >> 1)) & 0x5555555555555555u;
-    #if defined(__GNUC__) || defined(__clang__)
-    return __builtin_popcountll(mask);
 #else
     int count = 0;
     while (mask) {
