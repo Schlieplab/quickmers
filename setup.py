@@ -22,6 +22,7 @@ ext = Extension(
         "quickmers/_cbindings.c",
         "src/hamming.c",
         "src/levenshtein.c",
+        "src/levenshtein_ball.c"
     ],
     include_dirs=[
         numpy.get_include(),
