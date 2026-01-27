@@ -17,11 +17,6 @@ License: LGPL-3.0-or-later
 #include "levenshtein.h"
 #include "levenshtein_ball.h"
 
-typedef struct {
-    PyObject_HEAD
-    LevBallIter it;
-} PyLevBallIter;
-
 // ---------------- Helper: convert list or numpy array to const uint8_t** ----------------
 static int convert_to_kmer_array(PyObject* obj, const uint8_t*** kmers_out, int64_t* n_out, int64_t* kmer_len_out) {
     Py_ssize_t n = 0;
@@ -219,53 +214,16 @@ static PyObject* py_levenshtein_array_with_min_dist(PyObject* self, PyObject* ar
 }
 
 // ---------------- Levenshtein Ball Wrapper ----------------
-static PyObject* py_fixed_length_levenshtein_ball(PyObject* self, PyObject* args) {
-    const char* kmer;
-    int radius;
+typedef struct {
+    PyObject_HEAD
+    LevBallIter it;       /* The internal binary iterator */
+    int return_binary;    /* Whether to return uint64_t or string */
+} PyLevBallIter;
 
-    if (!PyArg_ParseTuple(args, "si", &kmer, &radius)) return NULL;
+static void PyLevBallIter_dealloc(PyLevBallIter* self);
+static PyObject* PyLevBallIter_iternext(PyLevBallIter* self);
 
-    char** out_kmers = NULL;
-    size_t out_count = 0;
-
-    fixed_length_levenshtein_ball(kmer, radius, &out_kmers, &out_count);
-
-    PyObject* result_list = PyList_New(out_count);
-    if (!result_list) {
-        for (size_t i = 0; i < out_count; i++) free(out_kmers[i]);
-        free(out_kmers);
-        return NULL;
-    }
-
-    for (size_t i = 0; i < out_count; i++) {
-        PyObject* s = PyUnicode_FromString(out_kmers[i]);
-        PyList_SetItem(result_list, i, s);
-        free(out_kmers[i]);
-    }
-    free(out_kmers);
-
-    return result_list;
-}
-
-static PyObject* PyLevBallIter_iternext(PyLevBallIter* self)
-{
-    char* s = fixed_length_levenshtein_ball_iter_next(&self->it);
-    if (!s) {
-        PyErr_SetNone(PyExc_StopIteration);
-        return NULL;
-    }
-
-    PyObject* py_s = PyUnicode_FromString(s);
-    free(s);
-    return py_s;
-}
-
-static void PyLevBallIter_dealloc(PyLevBallIter* self)
-{
-    fixed_length_levenshtein_ball_iter_free(&self->it);
-    PyObject_Del(self);
-}
-
+// ---------------- type object ----------------
 static PyTypeObject PyLevBallIterType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "levball.Iterator",
@@ -276,19 +234,83 @@ static PyTypeObject PyLevBallIterType = {
     .tp_iternext = (iternextfunc)PyLevBallIter_iternext,
 };
 
-static PyObject* py_fixed_length_levenshtein_ball_iter(PyObject* self,
-    PyObject* args)
+static PyObject*
+py_fixed_length_levenshtein_ball(PyObject* self, PyObject* args)
 {
     const char* kmer;
     int radius;
+    int return_binary;
 
-    if (!PyArg_ParseTuple(args, "si", &kmer, &radius)) return NULL;
+    if (!PyArg_ParseTuple(args, "sii", &kmer, &radius, &return_binary))
+        return NULL;
 
+    uint64_t* kmers;
+    size_t count;
+    fixed_length_levenshtein_ball(kmer, radius, &kmers, &count);
+
+    PyObject* list = PyList_New(count);
+    int k = strlen(kmer);
+
+    for (size_t i = 0; i < count; i++) {
+        PyObject* item;
+        if (return_binary)
+            item = PyLong_FromUnsignedLongLong(kmers[i]);
+        else {
+            char buf[65];
+            decode_kmer(kmers[i], k, buf);
+            item = PyUnicode_FromString(buf);
+        }
+        PyList_SetItem(list, i, item);
+    }
+
+    free(kmers);
+    return list;
+}
+
+static PyObject* py_fixed_length_levenshtein_ball_iter(PyObject* self, PyObject* args)
+{
+    const char* kmer;
+    int radius;
+    int return_binary = 0;
+
+    // Parse arguments: string, int, optional int
+    if (!PyArg_ParseTuple(args, "si|i", &kmer, &radius, &return_binary))
+        return NULL;
+
+    // Allocate a new PyLevBallIter object
     PyLevBallIter* obj = PyObject_New(PyLevBallIter, &PyLevBallIterType);
     if (!obj) return NULL;
 
+    // Initialize the internal iterator
     fixed_length_levenshtein_ball_iter_init(&obj->it, kmer, radius);
+    obj->return_binary = return_binary;
+
     return (PyObject*)obj;
+}
+
+// ---------------- iternext for binary iterator ----------------
+static PyObject* PyLevBallIter_iternext(PyLevBallIter* self)
+{
+    int ok;
+    uint64_t v = fixed_length_levenshtein_ball_iter_next(&self->it, &ok);
+    if (!ok) {
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;
+    }
+
+    if (self->return_binary)
+        return PyLong_FromUnsignedLongLong(v);
+
+    char buf[65];
+    decode_kmer(v, self->it.k, buf);
+    return PyUnicode_FromString(buf);
+}
+
+// ---------------- dealloc ----------------
+static void PyLevBallIter_dealloc(PyLevBallIter* self)
+{
+    fixed_length_levenshtein_ball_iter_free(&self->it);
+    PyObject_Del(self);
 }
 
 // ---------------- Module Definition -----------------------
@@ -299,7 +321,7 @@ static PyMethodDef QuickmersMethods[] = {
     {"levenshtein_distance", py_levenshtein, METH_VARARGS, "Levenshtein scalar."},
     {"levenshtein_distance_array", py_levenshtein_array, METH_VARARGS, "Levenshtein list (list or numpy array)."},
     {"levenshtein_distance_array_with_min_dist", py_levenshtein_array_with_min_dist, METH_VARARGS, "Levenshtein list with min distance (list or numpy array)."},
-    {"fixed_length_levenshtein_ball", py_fixed_length_levenshtein_ball, METH_VARARGS, "Fixed-length Levenshtein ball generator."},
+    {"fixed_length_levenshtein_ball", py_fixed_length_levenshtein_ball, METH_VARARGS, "Fixed-length Levenshtein ball."},
     {"fixed_length_levenshtein_ball_iterator", py_fixed_length_levenshtein_ball_iter, METH_VARARGS, "Return an iterator over the fixed-length Levenshtein ball"},
     {NULL, NULL, 0, NULL}
 };
