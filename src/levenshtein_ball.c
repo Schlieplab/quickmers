@@ -28,6 +28,12 @@ The core idea is to:
 #include <string.h>
 #include <stdint.h>
 
+int cmp_str(const void* a, const void* b) {
+    const char* sa = *(const char**)a;
+    const char* sb = *(const char**)b;
+    return strcmp(sa, sb);
+}
+
 /* ============================================================================
  *                          Hash set (uint64_t)
  * ============================================================================ */
@@ -196,28 +202,49 @@ void fixed_length_levenshtein_ball(const char* kmer,
     int k = strlen(kmer);
     uint64_t encoded = encode_kmer(kmer, k);
 
+    /* Step 1: Generate all operation strings into a hash table */
     KmerSet* ops = NULL;
     generate_operation_strings(k, radius, &ops);
 
-    BitKmerSet* result = NULL;
+    /* Step 2: Extract strings into an array */
+    size_t n_ops = HASH_COUNT(ops);
+    char** op_array = malloc(sizeof(char*) * n_ops);
+    if (!op_array) return; // malloc failure
 
+    size_t idx = 0;
     KmerSet* s;
     KmerSet* tmp;
     HASH_ITER(hh, ops, s, tmp) {
-        apply_operations_binary(encoded, k, s->kmer, &result);
-        free(s->kmer);
+        op_array[idx++] = s->kmer; // just pointers, don't strdup
+    }
+
+    qsort(op_array, n_ops, sizeof(char*), cmp_str);
+
+    /* Step 4: Free the hash table keys (but keep strings for sorted array) */
+    HASH_ITER(hh, ops, s, tmp) {
         HASH_DEL(ops, s);
         free(s);
     }
 
+    /* Step 5: Apply operations in sorted order */
+    BitKmerSet* result = NULL;
+    for (size_t i = 0; i < n_ops; i++) {
+        apply_operations_binary(encoded, k, op_array[i], &result);
+        free(op_array[i]); // free each string after use
+    }
+
+    free(op_array);
+
+    /* Step 6: Convert BitKmerSet to array */
     size_t n = HASH_COUNT(result);
     uint64_t* arr = malloc(sizeof(uint64_t) * n);
+    if (!arr) return; // malloc failure
 
-    size_t i = 0;
+    size_t j = 0;
     BitKmerSet* b;
     BitKmerSet* btmp;
     HASH_ITER(hh, result, b, btmp) {
-        arr[i++] = b->key;
+        arr[j++] = b->key;
         HASH_DEL(result, b);
         free(b);
     }

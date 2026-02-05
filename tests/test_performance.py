@@ -4,7 +4,7 @@ import time
 import quickmers
 
 K_LENGTHS = [5, 10, 15, 20, 25, 30]
-N_PAIRS = 10_000
+N_PAIRS = 1_000_000
 
 FUNCS = [
     ("hamming_distance", quickmers.hamming_distance),

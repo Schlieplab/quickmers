@@ -21,14 +21,14 @@ typedef struct {
     int k;                /* length of k-mer */
     uint64_t encoded;     /* input k-mer encoded as uint64_t */
 
-    /* Operation strings (from MCID generation) */
-    KmerSet* ops_set;     /* set of opstrings */
-    KmerSet* ops_cur;     /* current opstring being iterated */
+    /* Operation strings */
+    KmerSet* ops_set;
+    KmerSet* ops_cur;
 
-    /* Deduplication of returned values */
+    /* Deduplication */
     BitKmerSet* seen;
 
-    /* Current batch state (optional, can be NULL) */
+    /* Current batch */
     uint64_t* results;
     size_t res_count;
     size_t res_index;
@@ -45,7 +45,6 @@ void fixed_length_levenshtein_ball_iter_init(LevBallIter* it,
                                              const char* kmer,
                                              int radius);
 
-/* Returns next value; sets *has_value=0 when exhausted */
 uint64_t fixed_length_levenshtein_ball_iter_next(LevBallIter* it,
                                                  int* has_value);
 
