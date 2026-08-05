@@ -16,13 +16,18 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 
+[project.urls]
+Homepage = "https://github.com/Schlieplab/quickmers"
+Source = "https://github.com/Schlieplab/quickmers"
+Issues = "https://github.com/Schlieplab/quickmers/issues"
+
 authors = [
-    {name="Kian Jalilian", email="jalilkia@b-tu.de"}
+    {name="Kian Jalilian", email="kian2000.jalilian@gmail.com"}
 ]
 
 maintainers = [
     {name="Nathalie Gocht", email="nathalie.gocht@b-tu.de"},
-    {name="Kian Jalilian", email="jalilkia@b-tu.de"}
+    {name="Kian Jalilian", email="kian2000.jalilian@gmail.com"}
 ]
 
 dependencies = [

@@ -1,20 +1,11 @@
-import platform
-import subprocess
+import sys
 from setuptools import setup, Extension
 import numpy
 
-def cpu_supports_avx2():
-    if platform.system() != "Linux" and platform.system() != "Darwin":
-        return False
-    try:
-        output = subprocess.check_output("lscpu", shell=True, text=True)
-        return "avx2" in output.lower()
-    except Exception:
-        return False
+extra_args = ["-O3"]
 
-extra_args = ["-O3", "-march=native"]
-if cpu_supports_avx2():
-    extra_args.append("-mavx2")
+if sys.platform == "win32":
+    extra_args = ["/O2"]
 
 ext = Extension(
     "quickmers._cbindings",
@@ -27,7 +18,7 @@ ext = Extension(
         numpy.get_include(),
         "quickmers/include",
     ],
-    extra_compile_args=extra_args
+    extra_compile_args=extra_args,
 )
 
 setup(ext_modules=[ext])
