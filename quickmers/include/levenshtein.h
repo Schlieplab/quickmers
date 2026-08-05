@@ -2,7 +2,7 @@
 Filename: quickmers/include/levenshtein.h
 Author: Kian Jalilian
 Copyright: 2025, Alexander Schliep
-Version: 0.1.1
+Version: 0.1.2
 Description: Header file for levenshtein distance implementation in C
 License: LGPL-3.0-or-later
 */
