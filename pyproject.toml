@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Fast k-mer distance utilities in C with Python bindings"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text="LGPL-3.0-or-later"}
+license = {text = "LGPL-3.0-or-later"}
+
 classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Programming Language :: Python :: 3",
@@ -16,23 +17,23 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 
-[project.urls]
-Homepage = "https://github.com/Schlieplab/quickmers"
-Source = "https://github.com/Schlieplab/quickmers"
-Issues = "https://github.com/Schlieplab/quickmers/issues"
-
 authors = [
-    {name="Kian Jalilian", email="kian2000.jalilian@gmail.com"}
+    {name = "Kian Jalilian", email = "kian2000.jalilian@gmail.com"}
 ]
 
 maintainers = [
-    {name="Nathalie Gocht", email="nathalie.gocht@b-tu.de"},
-    {name="Kian Jalilian", email="kian2000.jalilian@gmail.com"}
+    {name = "Nathalie Gocht", email = "nathalie.gocht@b-tu.de"},
+    {name = "Kian Jalilian", email = "kian2000.jalilian@gmail.com"}
 ]
 
 dependencies = [
     "numpy>=1.24"
 ]
+
+[project.urls]
+Homepage = "https://github.com/Schlieplab/quickmers"
+Source = "https://github.com/Schlieplab/quickmers"
+Issues = "https://github.com/Schlieplab/quickmers/issues"
 
 [tool.setuptools.packages.find]
 include = ["quickmers*"]
