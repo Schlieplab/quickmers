@@ -122,9 +122,9 @@ print(distances)  # Output: array([2, 2, 2])
 A **Levenshtein ball** of radius `r` around a k-mer `x` is the set of all k-mers whose edit distance to `x` is at most `r`.  
 In many k-mer applications we only care about sequences of the **same length** as `x`. The **fixed-length Levenshtein ball** is therefore:
 
-\[
+$$
 B_r(x) = \{ y \in \{A,C,G,T\}^k \mid \text{edit\_distance}(x, y) \le r \}
-\]
+$$
 
 All output k-mers have length exactly `k`, the same as the input k-mer. This is different from a standard Levenshtein neighborhood, which can include shorter or longer strings due to insertions and deletions.
 
