@@ -69,7 +69,7 @@ static inline void kmerset_add(KmerSet** set, const char* kmer) {
 }
 
 /* ============================================================================
- *                   Operation String Generation (unchanged)
+ *                   Operation String Generation
  * ============================================================================ */
 
 typedef struct {
