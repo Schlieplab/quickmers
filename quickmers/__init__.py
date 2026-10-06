@@ -13,5 +13,7 @@ from ._cbindings import (
     levenshtein_distance_array,
     levenshtein_distance_array_with_min_dist,
     fixed_length_levenshtein_ball,
-    fixed_length_levenshtein_ball_iterator
+    fixed_length_levenshtein_ball_iterator,
+    levenshtein_ball,
+    levenshtein_ball_iterator
 )
