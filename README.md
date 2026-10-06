@@ -199,11 +199,7 @@ but avoids materializing the entire list in memory at once as the size can grow 
 
 ### 8. Levenshtein ball
 
-The **Levenshtein ball** drops the fixed-length restriction of the previous sections. It contains every sequence, of any length, whose edit distance to `x` is at most `r`:
-
-```text
-B_r(x) = { y in {A, C, G, T}^* | edit_distance(x, y) <= r }
-```
+The **Levenshtein ball** drops the fixed-length restriction of the previous sections. It contains every sequence, of any length, whose edit distance to `x` is at most `r`.
 
 Since insertions and deletions no longer have to cancel each other out, the output contains sequences of every length from `k - r` to `k + r`. The ball is therefore much larger than the fixed-length ball for the same `k` and `r`, and it is a superset of it.
 
