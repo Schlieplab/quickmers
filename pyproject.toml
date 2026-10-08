@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quickmers"
-version = "0.1.2"
+version = "0.2.1"
 description = "Fast k-mer distance utilities in C with Python bindings"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -37,3 +37,8 @@ Issues = "https://github.com/Schlieplab/quickmers/issues"
 
 [tool.setuptools.packages.find]
 include = ["quickmers*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: long-running benchmarks, excluded in CI (run with -m slow)",
+]

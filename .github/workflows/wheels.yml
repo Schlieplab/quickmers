@@ -30,7 +30,7 @@ jobs:
           CIBW_SKIP: "*-musllinux_*"
           CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_TEST_REQUIRES: "pytest numpy"
-          CIBW_TEST_COMMAND: "pytest {project}/tests"
+          CIBW_TEST_COMMAND: 'pytest {project}/tests -m "not slow"'
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
