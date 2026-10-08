@@ -2,7 +2,7 @@
 Filename: src/hamming.c
 Author: Kian Jalilian
 Copyright: 2025, Alexander Schliep
-Version: 0.2.0
+Version: 0.1.2
 Description: Function implementations for hamming distance calculations
 License: LGPL-3.0-or-later
 */
