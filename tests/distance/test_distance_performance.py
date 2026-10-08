@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import random
 import time
+import pytest
 import quickmers
 
 K_LENGTHS = [5, 10, 15, 20, 25, 30]
@@ -40,6 +41,7 @@ def benchmark_array(func, k):
     elapsed = benchmark_function(func, query, kmers)
     return N_PAIRS / elapsed  # calculations per second
 
+@pytest.mark.slow
 def test_performance():
     results = {name: [] for name, _ in FUNCS}
 

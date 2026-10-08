@@ -2,7 +2,7 @@
 Filename: src/levenshtein_ball.c
 Author: Kian Jalilian
 Copyright: 2025, Alexander Schliep
-Version: 0.1.0
+Version: 0.2.1
 Description: Fixed- and variable-length Levenshtein ball generation using uthash
 License: LGPL-3.0-or-later
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import time
 import multiprocessing as mp
+import pytest
 import quickmers
 
 # -----------------------------
@@ -143,6 +144,7 @@ def run_benchmarks(func_names, radii, is_supported=lambda k, r: True):
 # -----------------------------
 # Performance tests
 # -----------------------------
+@pytest.mark.slow
 def test_performance_fixed_length_balls():
     run_benchmarks(
         ["fixed_length_levenshtein_ball", "fixed_length_levenshtein_ball_iterator"],
@@ -150,6 +152,7 @@ def test_performance_fixed_length_balls():
     )
 
 
+@pytest.mark.slow
 def test_performance_variable_length_balls():
     run_benchmarks(
         ["levenshtein_ball", "levenshtein_ball_iterator"],

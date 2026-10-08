@@ -2,7 +2,7 @@
 Filename: quickmers/__init__.py
 Author: Kian Jalilian
 Copyright: 2025, Alexander Schliep
-Version: 0.2.0
+Version: 0.2.1
 Description: Python bindings for QuickMers C library.
 License: LGPL-3.0-or-later
 """
